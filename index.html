@@ -3,43 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GameMerge_Eagle</title>
+    <title>Merge Qduc - Pro Version</title>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; }
-        .score { position: absolute; top: 10px; left: 10px; background: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #3d2b1f; font-weight: bold; z-index: 100; color: #3d2b1f;}
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
+        #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* Bảng điểm & Kỷ lục */
+        .header-ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; z-index: 100; }
+        .ui-box { background: white; padding: 5px 12px; border-radius: 15px; border: 2px solid #3d2b1f; font-weight: bold; color: #3d2b1f; font-size: 14px; }
+        
         canvas { display: block; border-radius: 10px; }
         #dangerLine { position: absolute; top: 120px; left: 0; width: 100%; height: 2px; border-top: 3px dashed rgba(255, 71, 87, 0.6); pointer-events: none; z-index: 50; }
-        #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
-        #gameOverUI h1 { color: #ff4757; font-size: 40px; margin: 0; text-shadow: 2px 2px 0 #000; }
-        #gameOverUI button { padding: 12px 30px; font-size: 18px; font-weight: bold; background: #2ed573; color: white; border: none; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 0 #209f55; }
+        
+        /* Giao diện Game Over */
+        #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; text-align: center; }
+        #gameOverUI h1 { color: #ff4757; font-size: 45px; margin: 0; text-shadow: 2px 2px 0 #000; }
+        .final-stats { margin: 20px 0; font-size: 18px; line-height: 1.6; }
+        
+        .btn-group { display: flex; gap: 10px; flex-direction: column; }
+        button { padding: 12px 30px; font-size: 18px; font-weight: bold; color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; min-width: 180px; }
+        .btn-again { background: #2ed573; box-shadow: 0 4px 0 #209f55; }
+        .btn-share { background: #1e90ff; box-shadow: 0 4px 0 #0972d4; }
+        button:active { transform: translateY(2px); box-shadow: none; }
     </style>
 </head>
 <body>
 
 <div id="container">
-    <div class="score">Điểm: <span id="scoreText">0</span></div>
+    <div class="header-ui">
+        <div class="ui-box">Điểm: <span id="scoreText">0</span></div>
+        <div class="ui-box">Kỷ lục: <span id="highScoreText">0</span></div>
+    </div>
     <div id="dangerLine"></div>
     <canvas id="gameCanvas"></canvas>
+    
     <div id="gameOverUI">
         <h1>GAME OVER</h1>
-        <p>Điểm của bạn: <span id="finalScore">0</span></p>
-        <button onclick="location.reload()">Chơi lại</button>
+        <div class="final-stats">
+            <p>Điểm đạt được: <b id="finalScore" style="color:#ffcc00">0</b></p>
+            <p>Kỷ lục mới: <b id="isNewRecord" style="color:#2ed573; display:none">NEW!</b></p>
+        </div>
+        <div class="btn-group">
+            <button class="btn-again" onclick="location.reload()">CHƠI LẠI</button>
+            <button class="btn-share" onclick="shareGame()">CHIA SẺ ĐIỂM</button>
+        </div>
     </div>
 </div>
+
+<audio id="popSound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
 
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
-    // Danh sách 9 ảnh khớp chính xác với thư mục của bạn
     const IMGS = ['anhduy.jpg', 'ducanh.jpg', 'hieu.jpg', 'mabin.jpg', 'mhung.jpg', 'phuc.jpg', 'qduc.jpg', 'qduc2.jpg', 'tung.jpg'];
     const DANGER_Y = 120;
-    
+    let highScore = localStorage.getItem('mergeQduc_highScore') || 0;
+    document.getElementById('highScoreText').innerText = highScore;
+
     const initGame = () => {
         const { Engine, Bodies, Composite, Events } = Matter;
         const engine = Engine.create();
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const popSnd = document.getElementById('popSound');
         canvas.width = 400; canvas.height = 600;
 
         const sprites = IMGS.map(src => {
@@ -48,10 +74,11 @@
             return img;
         });
 
-        const ground = Bodies.rectangle(200, 610, 400, 60, { isStatic: true });
-        const left = Bodies.rectangle(-10, 300, 20, 600, { isStatic: true });
-        const right = Bodies.rectangle(410, 300, 20, 600, { isStatic: true });
-        Composite.add(engine.world, [ground, left, right]);
+        Composite.add(engine.world, [
+            Bodies.rectangle(200, 610, 400, 60, { isStatic: true }),
+            Bodies.rectangle(-10, 300, 20, 600, { isStatic: true }),
+            Bodies.rectangle(410, 300, 20, 600, { isStatic: true })
+        ]);
 
         let score = 0, curLvl = 0, mouseX = 200, canDrop = true, isGameOver = false;
 
@@ -65,7 +92,7 @@
         const drop = (e) => {
             if (!canDrop || isGameOver) return;
             if (e && e.cancelable) e.preventDefault();
-            const r = 25 + curLvl * 8; // Thu nhỏ độ tăng bán kính một chút để 9 cấp không quá to
+            const r = 25 + curLvl * 8;
             const ball = Bodies.circle(mouseX, 50, r, {
                 label: 'ball', level: curLvl, restitution: 0.3, spawnTime: Date.now()
             });
@@ -86,6 +113,11 @@
                     const nextLvl = bodyA.level + 1;
                     if (nextLvl < IMGS.length) {
                         bodyA.isMerging = bodyB.isMerging = true;
+                        
+                        // Chạy âm thanh khi ghép
+                        popSnd.currentTime = 0;
+                        popSnd.play().catch(()=>{});
+
                         const r = 25 + nextLvl * 8;
                         const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, r, {
                             label: 'ball', level: nextLvl, spawnTime: Date.now()
@@ -104,37 +136,50 @@
             Composite.allBodies(engine.world).forEach(body => {
                 if (body.label === 'ball') {
                     const r = 25 + body.level * 8;
-                    // Kiểm tra tràn: ở trên vạch đỏ > 3 giây và gần như đứng yên
                     if (!isGameOver && (body.position.y - r) < DANGER_Y && Date.now() - body.spawnTime > 3000 && Math.abs(body.velocity.y) < 0.2) {
-                        isGameOver = true;
-                        document.getElementById('finalScore').innerText = score;
-                        document.getElementById('gameOverUI').style.display = 'flex';
+                        endGame();
                     }
                     ctx.save();
                     ctx.translate(body.position.x, body.position.y);
                     ctx.rotate(body.angle);
                     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.clip();
-                    if (sprites[body.level] && sprites[body.level].complete) {
-                        ctx.drawImage(sprites[body.level], -r, -r, r*2, r*2);
-                    }
+                    if (sprites[body.level].complete) ctx.drawImage(sprites[body.level], -r, -r, r*2, r*2);
                     ctx.restore();
                 }
             });
             if (canDrop && !isGameOver) {
                 const r = 25 + curLvl * 8;
                 ctx.globalAlpha = 0.5;
-                if (sprites[curLvl] && sprites[curLvl].complete) {
-                    ctx.drawImage(sprites[curLvl], mouseX - r, 50 - r, r*2, r*2);
-                }
+                if (sprites[curLvl].complete) ctx.drawImage(sprites[curLvl], mouseX - r, 50 - r, r*2, r*2);
                 ctx.globalAlpha = 1;
             }
             requestAnimationFrame(update);
         })();
+
+        function endGame() {
+            isGameOver = true;
+            document.getElementById('finalScore').innerText = score;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('mergeQduc_highScore', highScore);
+                document.getElementById('isNewRecord').style.display = 'block';
+                document.getElementById('highScoreText').innerText = highScore;
+            }
+            document.getElementById('gameOverUI').style.display = 'flex';
+        }
     };
 
-    window.onload = () => {
-        setTimeout(() => { if (typeof Matter !== 'undefined') initGame(); }, 500);
+    window.shareGame = () => {
+        const score = document.getElementById('finalScore').innerText;
+        const text = `Tôi vừa đạt được ${score} điểm trong Merge Qduc! Thử thách bạn vượt qua kỷ lục của tôi đấy.`;
+        if (navigator.share) {
+            navigator.share({ title: 'Merge Qduc', text: text, url: window.location.href });
+        } else {
+            alert(text + "\n\n(Trình duyệt của bạn không hỗ trợ nút chia sẻ nhanh, hãy chụp màn hình nhé!)");
+        }
     };
+
+    window.onload = () => { setTimeout(() => { if (typeof Matter !== 'undefined') initGame(); }, 500); };
 </script>
 </body>
 </html>
