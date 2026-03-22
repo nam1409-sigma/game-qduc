@@ -9,17 +9,10 @@
         #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; }
         .score { position: absolute; top: 10px; left: 10px; background: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #3d2b1f; font-weight: bold; z-index: 100; color: #3d2b1f;}
         canvas { display: block; border-radius: 10px; }
-        #msg { position: absolute; width: 100%; text-align: center; top: 50%; color: #3d2b1f; font-weight: bold; display: none; }
-        
-        /* Vạch nguy hiểm cảnh báo tràn */
         #dangerLine { position: absolute; top: 120px; left: 0; width: 100%; height: 2px; border-top: 3px dashed rgba(255, 71, 87, 0.6); pointer-events: none; z-index: 50; }
-        
-        /* Màn hình Game Over */
-        #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
-        #gameOverUI h1 { color: #ff4757; font-size: 45px; margin: 0 0 10px 0; text-shadow: 2px 2px 0 #000; }
-        #gameOverUI p { font-size: 22px; margin-bottom: 30px; }
-        #gameOverUI button { padding: 12px 30px; font-size: 20px; font-weight: bold; background: #2ed573; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 0 #209f55; transition: 0.1s; }
-        #gameOverUI button:active { transform: translateY(3px); box-shadow: 0 2px 0 #209f55; }
+        #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        #gameOverUI h1 { color: #ff4757; font-size: 40px; margin: 0; text-shadow: 2px 2px 0 #000; }
+        #gameOverUI button { padding: 12px 30px; font-size: 18px; font-weight: bold; background: #2ed573; color: white; border: none; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 0 #209f55; }
     </style>
 </head>
 <body>
@@ -27,12 +20,10 @@
 <div id="container">
     <div class="score">Điểm: <span id="scoreText">0</span></div>
     <div id="dangerLine"></div>
-    <div id="msg">ĐANG TẢI...</div>
     <canvas id="gameCanvas"></canvas>
-    
     <div id="gameOverUI">
         <h1>GAME OVER</h1>
-        <p>Tổng điểm: <span id="finalScore">0</span></p>
+        <p>Điểm của bạn: <span id="finalScore">0</span></p>
         <button onclick="location.reload()">Chơi lại</button>
     </div>
 </div>
@@ -40,11 +31,12 @@
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
+    // Danh sách 9 ảnh khớp chính xác với thư mục của bạn
     const IMGS = ['anhduy.jpg', 'ducanh.jpg', 'hieu.jpg', 'mabin.jpg', 'mhung.jpg', 'phuc.jpg', 'qduc.jpg', 'qduc2.jpg', 'tung.jpg'];
-    const DANGER_Y = 120; // Vị trí vạch cảnh báo
+    const DANGER_Y = 120;
     
     const initGame = () => {
-        const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
+        const { Engine, Bodies, Composite, Events } = Matter;
         const engine = Engine.create();
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -61,57 +53,88 @@
         const right = Bodies.rectangle(410, 300, 20, 600, { isStatic: true });
         Composite.add(engine.world, [ground, left, right]);
 
-        let score = 0;
-        let curLvl = 0;
-        let mouseX = 200;
-        let canDrop = true;
-        let isGameOver = false; // Biến kiểm tra kết thúc game
+        let score = 0, curLvl = 0, mouseX = 200, canDrop = true, isGameOver = false;
 
-        const updatePosition = (e) => {
-            if (isGameOver) return; // Khóa điều khiển khi Game Over
+        const updatePos = (e) => {
+            if (isGameOver) return;
             const rect = canvas.getBoundingClientRect();
-            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const clientX = (e.touches) ? e.touches[0].clientX : e.clientX;
             mouseX = Math.max(30, Math.min(370, clientX - rect.left));
         };
 
-        const handleDrop = (e) => {
+        const drop = (e) => {
             if (!canDrop || isGameOver) return;
             if (e && e.cancelable) e.preventDefault();
-
-            // Gắn thêm spawnTime để đo thời gian sống của khối
-            const ball = Bodies.circle(mouseX, 50, 25 + curLvl * 10, {
-                label: 'ball', level: curLvl, restitution: 0.4, spawnTime: Date.now()
+            const r = 25 + curLvl * 8; // Thu nhỏ độ tăng bán kính một chút để 9 cấp không quá to
+            const ball = Bodies.circle(mouseX, 50, r, {
+                label: 'ball', level: curLvl, restitution: 0.3, spawnTime: Date.now()
             });
             Composite.add(engine.world, ball);
             canDrop = false;
-            setTimeout(() => { 
-                if(!isGameOver) {
-                    curLvl = Math.floor(Math.random() * 3); 
-                    canDrop = true; 
-                }
-            }, 800);
+            setTimeout(() => { if(!isGameOver){ curLvl = Math.floor(Math.random() * 3); canDrop = true; } }, 800);
         };
 
-        window.addEventListener('mousemove', updatePosition);
-        window.addEventListener('mousedown', handleDrop);
-
-        window.addEventListener('touchmove', (e) => {
-            updatePosition(e);
-            if (e.cancelable) e.preventDefault();
-        }, { passive: false });
-        
-        window.addEventListener('touchstart', (e) => {
-            updatePosition(e);
-        }, { passive: false });
-        
-        window.addEventListener('touchend', handleDrop, { passive: false });
+        window.addEventListener('mousemove', updatePos);
+        window.addEventListener('mousedown', drop);
+        window.addEventListener('touchmove', (e) => { updatePos(e); if(e.cancelable) e.preventDefault(); }, {passive: false});
+        window.addEventListener('touchend', drop, {passive: false});
 
         Events.on(engine, 'collisionStart', (event) => {
-            if (isGameOver) return;
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
                 if (bodyA.label === 'ball' && bodyB.label === 'ball' && bodyA.level === bodyB.level && !bodyA.isMerging) {
                     const nextLvl = bodyA.level + 1;
                     if (nextLvl < IMGS.length) {
                         bodyA.isMerging = bodyB.isMerging = true;
-                        const newRadius = 25 + nextLvl * 10;
+                        const r = 25 + nextLvl * 8;
+                        const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, r, {
+                            label: 'ball', level: nextLvl, spawnTime: Date.now()
+                        });
+                        score += (nextLvl + 1) * 10;
+                        document.getElementById('scoreText').innerText = score;
+                        setTimeout(() => { Composite.remove(engine.world, [bodyA, bodyB]); Composite.add(engine.world, newBall); }, 10);
+                    }
+                }
+            });
+        });
+
+        (function update() {
+            if (!isGameOver) Engine.update(engine, 1000/60);
+            ctx.clearRect(0, 0, 400, 600);
+            Composite.allBodies(engine.world).forEach(body => {
+                if (body.label === 'ball') {
+                    const r = 25 + body.level * 8;
+                    // Kiểm tra tràn: ở trên vạch đỏ > 3 giây và gần như đứng yên
+                    if (!isGameOver && (body.position.y - r) < DANGER_Y && Date.now() - body.spawnTime > 3000 && Math.abs(body.velocity.y) < 0.2) {
+                        isGameOver = true;
+                        document.getElementById('finalScore').innerText = score;
+                        document.getElementById('gameOverUI').style.display = 'flex';
+                    }
+                    ctx.save();
+                    ctx.translate(body.position.x, body.position.y);
+                    ctx.rotate(body.angle);
+                    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.clip();
+                    if (sprites[body.level] && sprites[body.level].complete) {
+                        ctx.drawImage(sprites[body.level], -r, -r, r*2, r*2);
+                    }
+                    ctx.restore();
+                }
+            });
+            if (canDrop && !isGameOver) {
+                const r = 25 + curLvl * 8;
+                ctx.globalAlpha = 0.5;
+                if (sprites[curLvl] && sprites[curLvl].complete) {
+                    ctx.drawImage(sprites[curLvl], mouseX - r, 50 - r, r*2, r*2);
+                }
+                ctx.globalAlpha = 1;
+            }
+            requestAnimationFrame(update);
+        })();
+    };
+
+    window.onload = () => {
+        setTimeout(() => { if (typeof Matter !== 'undefined') initGame(); }, 500);
+    };
+</script>
+</body>
+</html>
