@@ -2,9 +2,11 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Game Merge Qduc - Final Fix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GameMerge_Eagle</title>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: sans-serif; }
+        /* Thêm touch-action: none để chặn triệt để thao tác vuốt của trình duyệt trên điện thoại */
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: sans-serif; touch-action: none; }
         #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; }
         .score { position: absolute; top: 10px; left: 10px; background: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #3d2b1f; font-weight: bold; z-index: 100; }
         canvas { display: block; border-radius: 10px; }
@@ -50,21 +52,42 @@
         let mouseX = 200;
         let canDrop = true;
 
-        // Click để thả
-        window.addEventListener('mousedown', (e) => {
+        // Xử lý chung tọa độ cho cả chuột và màn hình cảm ứng
+        const updatePosition = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            // Lấy tọa độ X từ ngón tay (e.touches) HOẶC từ chuột (e.clientX)
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            mouseX = Math.max(30, Math.min(370, clientX - rect.left));
+        };
+
+        const handleDrop = (e) => {
             if (!canDrop) return;
+            // Ngăn chặn sự kiện mặc định nếu là chạm màn hình
+            if (e && e.cancelable) e.preventDefault();
+
             const ball = Bodies.circle(mouseX, 50, 25 + curLvl * 10, {
                 label: 'ball', level: curLvl, restitution: 0.4
             });
             Composite.add(engine.world, ball);
             canDrop = false;
             setTimeout(() => { curLvl = Math.floor(Math.random() * 5); canDrop = true; }, 800);
-        });
+        };
 
-        window.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mouseX = Math.max(30, Math.min(370, e.clientX - rect.left));
-        });
+        // KÍCH HOẠT SỰ KIỆN CHO CHUỘT (MÁY TÍNH)
+        window.addEventListener('mousemove', updatePosition);
+        window.addEventListener('mousedown', handleDrop);
+
+        // KÍCH HOẠT SỰ KIỆN CHO CẢM ỨNG (ĐIỆN THOẠI)
+        window.addEventListener('touchmove', (e) => {
+            updatePosition(e);
+            if (e.cancelable) e.preventDefault(); // Chặn hành động kéo trang của trình duyệt
+        }, { passive: false });
+        
+        window.addEventListener('touchstart', (e) => {
+            updatePosition(e);
+        }, { passive: false });
+        
+        window.addEventListener('touchend', handleDrop, { passive: false });
 
         // Hợp nhất
         Events.on(engine, 'collisionStart', (event) => {
@@ -100,7 +123,7 @@
                     ctx.beginPath();
                     ctx.arc(0, 0, 25 + body.level * 10, 0, Math.PI*2);
                     ctx.clip();
-                    if (img.complete) {
+                    if (img.complete && img.naturalWidth > 0) {
                         ctx.drawImage(img, -(25 + body.level * 10), -(25 + body.level * 10), (25 + body.level * 10)*2, (25 + body.level * 10)*2);
                     } else {
                         ctx.fillStyle = "#ffcc00"; ctx.fill();
@@ -119,12 +142,12 @@
         })();
     };
 
-    // Chạy game sau 1 giây bất chấp lỗi Extension
+    // Chạy game sau 1 giây
     setTimeout(() => {
         if (typeof Matter !== 'undefined') {
             initGame();
         } else {
-            alert("Vẫn không tải được thư viện Matter.js! Hãy thử tắt Extension 'FB AIO' hoặc Adblock.");
+            alert("Vẫn không tải được thư viện Vật lý! Hãy kiểm tra mạng.");
         }
     }, 1000);
 </script>
