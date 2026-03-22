@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Merge Qduc - Final Fix</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: sans-serif; }
+        #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; }
+        .score { position: absolute; top: 10px; left: 10px; background: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #3d2b1f; font-weight: bold; z-index: 100; }
+        canvas { display: block; border-radius: 10px; }
+        #msg { position: absolute; width: 100%; text-align: center; top: 50%; color: #3d2b1f; font-weight: bold; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <div class="score">Điểm: <span id="scoreText">0</span></div>
+    <div id="msg">ĐANG TẢI...</div>
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+
+<script>
+    // DANH SÁCH ẢNH CỦA BẠN
+    const IMGS = ['anhduy.jpg', 'hieu.jpg', 'mhung.jpg', 'phuc.jpg', 'tung.jpg'];
+    
+    const initGame = () => {
+        const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
+        const engine = Engine.create();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 400; canvas.height = 600;
+
+        // Load ảnh cục bộ
+        const sprites = IMGS.map(src => {
+            const img = new Image();
+            img.src = src;
+            return img;
+        });
+
+        // Tạo khung
+        const ground = Bodies.rectangle(200, 610, 400, 60, { isStatic: true });
+        const left = Bodies.rectangle(-10, 300, 20, 600, { isStatic: true });
+        const right = Bodies.rectangle(410, 300, 20, 600, { isStatic: true });
+        Composite.add(engine.world, [ground, left, right]);
+
+        let score = 0;
+        let curLvl = 0;
+        let mouseX = 200;
+        let canDrop = true;
+
+        // Click để thả
+        window.addEventListener('mousedown', (e) => {
+            if (!canDrop) return;
+            const ball = Bodies.circle(mouseX, 50, 25 + curLvl * 10, {
+                label: 'ball', level: curLvl, restitution: 0.4
+            });
+            Composite.add(engine.world, ball);
+            canDrop = false;
+            setTimeout(() => { curLvl = Math.floor(Math.random() * 5); canDrop = true; }, 800);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = Math.max(30, Math.min(370, e.clientX - rect.left));
+        });
+
+        // Hợp nhất
+        Events.on(engine, 'collisionStart', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                if (bodyA.label === 'ball' && bodyB.label === 'ball' && bodyA.level === bodyB.level && !bodyA.isMerging) {
+                    bodyA.isMerging = bodyB.isMerging = true;
+                    const nextLvl = (bodyA.level + 1) % 5;
+                    const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, 25 + nextLvl * 10, {
+                        label: 'ball', level: nextLvl
+                    });
+                    score += 10;
+                    document.getElementById('scoreText').innerText = score;
+                    setTimeout(() => {
+                        Composite.remove(engine.world, [bodyA, bodyB]);
+                        Composite.add(engine.world, newBall);
+                    }, 10);
+                }
+            });
+        });
+
+        (function update() {
+            Engine.update(engine, 1000/60);
+            ctx.clearRect(0, 0, 400, 600);
+            
+            // Vẽ các quả bóng
+            Composite.allBodies(engine.world).forEach(body => {
+                if (body.label === 'ball') {
+                    const img = sprites[body.level];
+                    ctx.save();
+                    ctx.translate(body.position.x, body.position.y);
+                    ctx.rotate(body.angle);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 25 + body.level * 10, 0, Math.PI*2);
+                    ctx.clip();
+                    if (img.complete) {
+                        ctx.drawImage(img, -(25 + body.level * 10), -(25 + body.level * 10), (25 + body.level * 10)*2, (25 + body.level * 10)*2);
+                    } else {
+                        ctx.fillStyle = "#ffcc00"; ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            });
+
+            // Quả bóng chờ
+            if (canDrop) {
+                ctx.globalAlpha = 0.5;
+                ctx.drawImage(sprites[curLvl], mouseX - 20, 30, 40, 40);
+                ctx.globalAlpha = 1;
+            }
+            requestAnimationFrame(update);
+        })();
+    };
+
+    // Chạy game sau 1 giây bất chấp lỗi Extension
+    setTimeout(() => {
+        if (typeof Matter !== 'undefined') {
+            initGame();
+        } else {
+            alert("Vẫn không tải được thư viện Matter.js! Hãy thử tắt Extension 'FB AIO' hoặc Adblock.");
+        }
+    }, 1000);
+</script>
+</body>
+</html>
