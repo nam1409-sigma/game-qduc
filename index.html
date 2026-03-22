@@ -6,24 +6,42 @@
     <title>GameMerge_Eagle</title>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; }
-        .score { position: absolute; top: 10px; left: 10px; background: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #3d2b1f; font-weight: bold; z-index: 100; }
+        #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; }
+        .score { position: absolute; top: 10px; left: 10px; background: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #3d2b1f; font-weight: bold; z-index: 100; color: #3d2b1f;}
         canvas { display: block; border-radius: 10px; }
         #msg { position: absolute; width: 100%; text-align: center; top: 50%; color: #3d2b1f; font-weight: bold; display: none; }
+        
+        /* Vạch nguy hiểm cảnh báo tràn */
+        #dangerLine { position: absolute; top: 120px; left: 0; width: 100%; height: 2px; border-top: 3px dashed rgba(255, 71, 87, 0.6); pointer-events: none; z-index: 50; }
+        
+        /* Màn hình Game Over */
+        #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        #gameOverUI h1 { color: #ff4757; font-size: 45px; margin: 0 0 10px 0; text-shadow: 2px 2px 0 #000; }
+        #gameOverUI p { font-size: 22px; margin-bottom: 30px; }
+        #gameOverUI button { padding: 12px 30px; font-size: 20px; font-weight: bold; background: #2ed573; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 0 #209f55; transition: 0.1s; }
+        #gameOverUI button:active { transform: translateY(3px); box-shadow: 0 2px 0 #209f55; }
     </style>
 </head>
 <body>
 
 <div id="container">
     <div class="score">Điểm: <span id="scoreText">0</span></div>
+    <div id="dangerLine"></div>
     <div id="msg">ĐANG TẢI...</div>
     <canvas id="gameCanvas"></canvas>
+    
+    <div id="gameOverUI">
+        <h1>GAME OVER</h1>
+        <p>Tổng điểm: <span id="finalScore">0</span></p>
+        <button onclick="location.reload()">Chơi lại</button>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
     const IMGS = ['anhduy.jpg', 'ducanh.jpg', 'hieu.jpg', 'mabin.jpg', 'mhung.jpg', 'phuc.jpg', 'qduc.jpg', 'qduc2.jpg', 'tung.jpg'];
+    const DANGER_Y = 120; // Vị trí vạch cảnh báo
     
     const initGame = () => {
         const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
@@ -47,23 +65,31 @@
         let curLvl = 0;
         let mouseX = 200;
         let canDrop = true;
+        let isGameOver = false; // Biến kiểm tra kết thúc game
 
         const updatePosition = (e) => {
+            if (isGameOver) return; // Khóa điều khiển khi Game Over
             const rect = canvas.getBoundingClientRect();
             const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
             mouseX = Math.max(30, Math.min(370, clientX - rect.left));
         };
 
         const handleDrop = (e) => {
-            if (!canDrop) return;
+            if (!canDrop || isGameOver) return;
             if (e && e.cancelable) e.preventDefault();
 
+            // Gắn thêm spawnTime để đo thời gian sống của khối
             const ball = Bodies.circle(mouseX, 50, 25 + curLvl * 10, {
-                label: 'ball', level: curLvl, restitution: 0.4
+                label: 'ball', level: curLvl, restitution: 0.4, spawnTime: Date.now()
             });
             Composite.add(engine.world, ball);
             canDrop = false;
-            setTimeout(() => { curLvl = Math.floor(Math.random() * 3); canDrop = true; }, 800);
+            setTimeout(() => { 
+                if(!isGameOver) {
+                    curLvl = Math.floor(Math.random() * 3); 
+                    canDrop = true; 
+                }
+            }, 800);
         };
 
         window.addEventListener('mousemove', updatePosition);
@@ -81,6 +107,7 @@
         window.addEventListener('touchend', handleDrop, { passive: false });
 
         Events.on(engine, 'collisionStart', (event) => {
+            if (isGameOver) return;
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
                 if (bodyA.label === 'ball' && bodyB.label === 'ball' && bodyA.level === bodyB.level && !bodyA.isMerging) {
@@ -88,67 +115,3 @@
                     if (nextLvl < IMGS.length) {
                         bodyA.isMerging = bodyB.isMerging = true;
                         const newRadius = 25 + nextLvl * 10;
-                        const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, newRadius, {
-                            label: 'ball', level: nextLvl
-                        });
-                        score += (nextLvl + 1) * 10;
-                        document.getElementById('scoreText').innerText = score;
-                        setTimeout(() => {
-                            Composite.remove(engine.world, [bodyA, bodyB]);
-                            Composite.add(engine.world, newBall);
-                        }, 10);
-                    }
-                }
-            });
-        });
-
-        (function update() {
-            Engine.update(engine, 1000/60);
-            ctx.clearRect(0, 0, 400, 600);
-            
-            Composite.allBodies(engine.world).forEach(body => {
-                if (body.label === 'ball') {
-                    const img = sprites[body.level];
-                    const r = 25 + body.level * 10;
-                    ctx.save();
-                    ctx.translate(body.position.x, body.position.y);
-                    ctx.rotate(body.angle);
-                    ctx.beginPath();
-                    ctx.arc(0, 0, r, 0, Math.PI*2);
-                    ctx.clip();
-                    if (img.complete && img.naturalWidth > 0) {
-                        ctx.drawImage(img, -r, -r, r*2, r*2);
-                    } else {
-                        ctx.fillStyle = "#ffcc00"; ctx.fill();
-                    }
-                    ctx.restore();
-                }
-            });
-
-            if (canDrop) {
-                const waitR = 25 + curLvl * 10;
-                ctx.globalAlpha = 0.5;
-                if (sprites[curLvl].complete && sprites[curLvl].naturalWidth > 0) {
-                    ctx.drawImage(sprites[curLvl], mouseX - waitR, 50 - waitR, waitR * 2, waitR * 2);
-                } else {
-                    ctx.beginPath();
-                    ctx.arc(mouseX, 50, waitR, 0, Math.PI*2);
-                    ctx.fillStyle = "#ffcc00";
-                    ctx.fill();
-                }
-                ctx.globalAlpha = 1;
-            }
-            requestAnimationFrame(update);
-        })();
-    };
-
-    setTimeout(() => {
-        if (typeof Matter !== 'undefined') {
-            initGame();
-        } else {
-            alert("Lỗi tải thư viện Vật lý!");
-        }
-    }, 1000);
-</script>
-</body>
-</html>
