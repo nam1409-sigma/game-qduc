@@ -3,21 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DA LO TIN NHAN - Eagle</title>
+    <title>DA LO TIN NHAN</title>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #container { position: relative; width: 450px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 95vw; }
-        .header-ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; z-index: 100; }
+        .header-ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; z-index: 100; pointer-events: none; }
         .ui-box { background: white; padding: 5px 12px; border-radius: 15px; border: 2px solid #3d2b1f; font-weight: bold; color: #3d2b1f; font-size: 13px; }
-        canvas { display: block; border-radius: 10px; }
+        canvas { display: block; border-radius: 10px; cursor: crosshair; }
         #dangerLine { position: absolute; top: 80px; left: 0; width: 100%; height: 2px; border-top: 3px dashed rgba(255, 71, 87, 0.6); pointer-events: none; z-index: 50; }
         #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; text-align: center; }
-        #gameOverUI h1 { color: #ff4757; font-size: 40px; margin: 0; }
-        .final-stats { margin: 20px 0; font-size: 18px; }
-        .btn-group { display: flex; gap: 10px; flex-direction: column; }
-        button { padding: 12px 30px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 50px; cursor: pointer; min-width: 160px; }
+        button { padding: 12px 30px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 50px; cursor: pointer; margin-top: 10px; }
         .btn-again { background: #2ed573; box-shadow: 0 4px 0 #209f55; }
-        .btn-share { background: #1e90ff; box-shadow: 0 4px 0 #0972d4; }
     </style>
 </head>
 <body>
@@ -32,14 +28,8 @@
     
     <div id="gameOverUI">
         <h1>GAME OVER</h1>
-        <div class="final-stats">
-            <p>Điểm: <b id="finalScore" style="color:#ffcc00">0</b></p>
-            <p id="isNewRecord" style="color:#2ed573; display:none; font-weight:bold">KỶ LỤC MỚI!</p>
-        </div>
-        <div class="btn-group">
-            <button class="btn-again" onclick="location.reload()">CHƠI LẠI</button>
-            <button class="btn-share" onclick="shareGame()">CHIA SẺ</button>
-        </div>
+        <p>Điểm của bạn: <b id="finalScore" style="color:#ffcc00">0</b></p>
+        <button class="btn-again" onclick="location.reload()">CHƠI LẠI</button>
     </div>
 </div>
 
@@ -48,168 +38,192 @@
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
-    const IMGS = ['anhduy.jpg', 'ducanh.jpg', 'hieu.jpg', 'mabin.jpg', 'mhung.jpg', 'phuc.jpg', 'qduc.jpg', 'qduc2.jpg', 'tung.jpg'];
-    const DANGER_Y = 80; 
+    const IMGS_SRC = ['anhduy.jpg', 'ducanh.jpg', 'hieu.jpg', 'mabin.jpg', 'mhung.jpg', 'phuc.jpg', 'qduc.jpg', 'qduc2.jpg', 'tung.jpg'];
+    const COLORS = ['#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#eccc68', '#70a1ff', '#7bed9f', '#ff6b81', '#5352ed'];
     const CW = 450;
     const CH = 600;
+    const DANGER_Y = 80;
 
-    let highScore = localStorage.getItem('mergeQduc_highScore') || 0;
+    let score = 0;
+    let highScore = localStorage.getItem('merge_highScore') || 0;
     document.getElementById('highScoreText').innerText = highScore;
 
     const initGame = () => {
-        const { Engine, Bodies, Composite, Events } = Matter;
+        const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
         const engine = Engine.create();
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const soundEffect = document.getElementById('eagleSound');
-        
-        canvas.width = CW; 
+        const eagleSnd = document.getElementById('eagleSound');
+
+        canvas.width = CW;
         canvas.height = CH;
 
-        const sprites = IMGS.map(src => {
+        // Tải ảnh và xử lý lỗi
+        const sprites = IMGS_SRC.map(src => {
             const img = new Image();
             img.src = src;
             return img;
         });
 
+        // Tạo khung bao quanh
         Composite.add(engine.world, [
             Bodies.rectangle(CW/2, CH + 10, CW, 60, { isStatic: true }),
             Bodies.rectangle(-10, CH/2, 20, CH, { isStatic: true }),
             Bodies.rectangle(CW + 10, CH/2, 20, CH, { isStatic: true })
         ]);
 
-        let score = 0, curLvl = 0, mouseX = CW/2, canDrop = true, isGameOver = false;
+        let curLvl = 0;
+        let mouseX = CW/2;
+        let canDrop = true;
+        let isGameOver = false;
 
-        const getRad = (lvl) => 18 + lvl * 6;
+        const getRad = (lvl) => 18 + lvl * 7;
 
-        const updatePos = (e) => {
+        // Xử lý di chuyển
+        const handleMove = (e) => {
             if (isGameOver) return;
             const rect = canvas.getBoundingClientRect();
-            const clientX = (e.touches) ? e.touches[0].clientX : e.clientX;
-            mouseX = Math.max(20, Math.min(CW - 20, clientX - rect.left));
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            mouseX = Math.max(25, Math.min(CW - 25, x));
         };
 
-        const drop = (e) => {
+        const handleDrop = () => {
             if (!canDrop || isGameOver) return;
-            if (e && e.cancelable) e.preventDefault();
             
             const r = getRad(curLvl);
             const ball = Bodies.circle(mouseX, 40, r, {
-                label: 'ball', 
-                level: curLvl, 
-                restitution: 0.3, 
+                label: 'ball',
+                level: curLvl,
+                restitution: 0.3,
                 spawnTime: Date.now()
             });
-            
+
             Composite.add(engine.world, ball);
             canDrop = false;
-            
-            setTimeout(() => { 
-                if(!isGameOver){ 
-                    curLvl = Math.floor(Math.random() * 3); 
-                    canDrop = true; 
-                } 
-            }, 500);
+
+            setTimeout(() => {
+                if (!isGameOver) {
+                    curLvl = Math.floor(Math.random() * 3);
+                    canDrop = true;
+                }
+            }, 600);
         };
 
-        window.addEventListener('mousemove', updatePos);
-        window.addEventListener('mousedown', drop);
-        window.addEventListener('touchmove', (e) => { updatePos(e); if(e.cancelable) e.preventDefault(); }, {passive: false});
-        window.addEventListener('touchend', drop, {passive: false});
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mousedown', handleDrop);
+        window.addEventListener('touchstart', (e) => { handleMove(e); }, {passive: false});
+        window.addEventListener('touchend', handleDrop);
 
+        // Xử lý va chạm
         Events.on(engine, 'collisionStart', (event) => {
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
-                
-                // Khi 2 quả bóng cùng cấp chạm nhau
                 if (bodyA.label === 'ball' && bodyB.label === 'ball' && bodyA.level === bodyB.level && !bodyA.isMerging) {
-                    bodyA.isMerging = bodyB.isMerging = true;
                     
-                    // Phát âm thanh Eagle
-                    soundEffect.currentTime = 0;
-                    soundEffect.play().catch(()=>{});
+                    bodyA.isMerging = bodyB.isMerging = true;
+                    if(eagleSnd) { eagleSnd.currentTime = 0; eagleSnd.play().catch(()=>{}); }
 
                     const nextLvl = bodyA.level + 1;
+                    const pos = { x: (bodyA.position.x + bodyB.position.x)/2, y: (bodyA.position.y + bodyB.position.y)/2 };
 
-                    if (nextLvl < IMGS.length) {
-                        // Nâng cấp bóng
-                        const r = getRad(nextLvl);
-                        const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, r, {
+                    if (nextLvl < IMGS_SRC.length) {
+                        const newBall = Bodies.circle(pos.x, pos.y, getRad(nextLvl), {
                             label: 'ball', level: nextLvl, spawnTime: Date.now()
                         });
-                        
                         score += (nextLvl + 1) * 10;
-                        setTimeout(() => { 
-                            Composite.remove(engine.world, [bodyA, bodyB]); 
-                            Composite.add(engine.world, newBall); 
+                        setTimeout(() => {
+                            Composite.remove(engine.world, [bodyA, bodyB]);
+                            Composite.add(engine.world, newBall);
                         }, 10);
                     } else {
-                        // Đạt cấp tung.jpg: Biến mất + 1000 điểm
+                        // Level cuối (tung.jpg) chạm nhau -> Nổ
                         score += 1000;
-                        setTimeout(() => { 
-                            Composite.remove(engine.world, [bodyA, bodyB]); 
+                        setTimeout(() => {
+                            Composite.remove(engine.world, [bodyA, bodyB]);
                         }, 10);
                     }
-                    
                     document.getElementById('scoreText').innerText = score;
                 }
             });
         });
 
-        (function update() {
-            if (!isGameOver) Engine.update(engine, 1000/60);
+        // Vòng lặp vẽ game
+        (function render() {
+            Engine.update(engine, 1000/60);
             ctx.clearRect(0, 0, CW, CH);
-            
-            Composite.allBodies(engine.world).forEach(body => {
+
+            const bodies = Composite.allBodies(engine.world);
+            bodies.forEach(body => {
                 if (body.label === 'ball') {
                     const r = getRad(body.level);
-                    if (!isGameOver && (body.position.y - r) < DANGER_Y && Date.now() - body.spawnTime > 3000 && Math.abs(body.velocity.y) < 0.2) {
+                    
+                    // Kiểm tra thua cuộc
+                    if (!isGameOver && body.position.y < DANGER_Y && Date.now() - body.spawnTime > 3000) {
+                        isGameOver = true;
                         endGame();
                     }
+
                     ctx.save();
                     ctx.translate(body.position.x, body.position.y);
                     ctx.rotate(body.angle);
-                    ctx.beginPath(); 
-                    ctx.arc(0, 0, r, 0, Math.PI*2); 
-                    ctx.clip();
-                    if (sprites[body.level].complete) ctx.drawImage(sprites[body.level], -r, -r, r*2, r*2);
+                    
+                    // Vẽ hình tròn
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, Math.PI*2);
+                    ctx.closePath();
+
+                    // Nếu có ảnh thì vẽ ảnh, không thì vẽ màu
+                    if (sprites[body.level] && sprites[body.level].complete && sprites[body.level].naturalWidth !== 0) {
+                        ctx.clip();
+                        ctx.drawImage(sprites[body.level], -r, -r, r*2, r*2);
+                    } else {
+                        ctx.fillStyle = COLORS[body.level % COLORS.length];
+                        ctx.fill();
+                        ctx.strokeStyle = "#333";
+                        ctx.stroke();
+                        ctx.fillStyle = "white";
+                        ctx.textAlign = "center";
+                        ctx.fillText(body.level, 0, 5);
+                    }
                     ctx.restore();
                 }
             });
 
+            // Vẽ bóng nháp
             if (canDrop && !isGameOver) {
                 const r = getRad(curLvl);
                 ctx.globalAlpha = 0.5;
-                if (sprites[curLvl].complete) ctx.drawImage(sprites[curLvl], mouseX - r, 40 - r, r*2, r*2);
+                if (sprites[curLvl] && sprites[curLvl].complete && sprites[curLvl].naturalWidth !== 0) {
+                    ctx.drawImage(sprites[curLvl], mouseX - r, 40 - r, r*2, r*2);
+                } else {
+                    ctx.fillStyle = COLORS[curLvl];
+                    ctx.beginPath();
+                    ctx.arc(mouseX, 40, r, 0, Math.PI*2);
+                    ctx.fill();
+                }
                 ctx.globalAlpha = 1;
             }
-            requestAnimationFrame(update);
+
+            requestAnimationFrame(render);
         })();
 
         function endGame() {
-            isGameOver = true;
             document.getElementById('finalScore').innerText = score;
             if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('mergeQduc_highScore', highScore);
-                document.getElementById('isNewRecord').style.display = 'block';
-                document.getElementById('highScoreText').innerText = highScore;
+                localStorage.setItem('merge_highScore', score);
             }
             document.getElementById('gameOverUI').style.display = 'flex';
         }
     };
 
-    window.shareGame = () => {
-        const score = document.getElementById('finalScore').innerText;
-        const text = `Tôi vừa đạt được ${score} điểm trong Merge Qduc! Thử thách bạn đấy.`;
-        if (navigator.share) {
-            navigator.share({ title: 'Merge Qduc', text: text, url: window.location.href });
+    // Đảm bảo Matter.js đã load xong
+    window.onload = () => {
+        if (typeof Matter !== 'undefined') {
+            initGame();
         } else {
-            alert(text);
+            alert("Không thể tải thư viện game. Vui lòng kiểm tra kết nối mạng!");
         }
     };
-
-    window.onload = () => { setTimeout(() => { if (typeof Matter !== 'undefined') initGame(); }, 500); };
 </script>
 </body>
 </html>
