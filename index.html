@@ -43,7 +43,7 @@
     </div>
 </div>
 
-<audio id="popSound" src="eagle.mp3" preload="auto"></audio>
+<audio id="popSound" src="eagle.mp3" preload="auto" playsinline></audio>
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
@@ -110,6 +110,16 @@
                 } 
             }, 500);
         };
+
+        // iOS requires audio to be unlocked by a direct user gesture first
+        let audioUnlocked = false;
+        const unlockAudio = () => {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+            popSnd.play().then(() => { popSnd.pause(); popSnd.currentTime = 0; }).catch(() => {});
+        };
+        window.addEventListener('mousedown', unlockAudio);
+        window.addEventListener('touchstart', unlockAudio);
 
         window.addEventListener('mousemove', updatePos);
         window.addEventListener('mousedown', drop);
