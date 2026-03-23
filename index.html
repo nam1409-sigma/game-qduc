@@ -119,26 +119,40 @@
         Events.on(engine, 'collisionStart', (event) => {
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
+                
+                // Kiểm tra nếu cả 2 đều là bóng và cùng level
                 if (bodyA.label === 'ball' && bodyB.label === 'ball' && bodyA.level === bodyB.level && !bodyA.isMerging) {
-                    const nextLvl = bodyA.level + 1;
-                    if (nextLvl < IMGS.length) {
-                        bodyA.isMerging = bodyB.isMerging = true;
-                        popSnd.currentTime = 0;
-                        popSnd.play().catch(()=>{});
+                    bodyA.isMerging = bodyB.isMerging = true;
+                    
+                    // Hiệu ứng âm thanh
+                    popSnd.currentTime = 0;
+                    popSnd.play().catch(()=>{});
 
+                    const nextLvl = bodyA.level + 1;
+
+                    if (nextLvl < IMGS.length) {
+                        // TRƯỜNG HỢP 1: Nâng cấp lên bóng to hơn
                         const r = getRad(nextLvl);
                         const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, r, {
                             label: 'ball', level: nextLvl, spawnTime: Date.now()
                         });
                         
                         score += (nextLvl + 1) * 10;
-                        document.getElementById('scoreText').innerText = score;
                         
                         setTimeout(() => { 
                             Composite.remove(engine.world, [bodyA, bodyB]); 
                             Composite.add(engine.world, newBall); 
                         }, 10);
+                    } else {
+                        // TRƯỜNG HỢP 2: Hai bóng to nhất (tung.jpg) chạm nhau -> Biến mất + 1000 điểm
+                        score += 1000;
+                        
+                        setTimeout(() => { 
+                            Composite.remove(engine.world, [bodyA, bodyB]); 
+                        }, 10);
                     }
+                    
+                    document.getElementById('scoreText').innerText = score;
                 }
             });
         });
@@ -189,14 +203,4 @@
     window.shareGame = () => {
         const score = document.getElementById('finalScore').innerText;
         const text = `Tôi vừa đạt được ${score} điểm trong Merge Qduc! Thử thách bạn đấy.`;
-        if (navigator.share) {
-            navigator.share({ title: 'Merge Qduc', text: text, url: window.location.href });
-        } else {
-            alert(text);
-        }
-    };
-
-    window.onload = () => { setTimeout(() => { if (typeof Matter !== 'undefined') initGame(); }, 500); };
-</script>
-</body>
-</html>
+        if (navigator.share
