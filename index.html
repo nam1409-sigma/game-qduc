@@ -6,25 +6,18 @@
     <title>DA LO TIN NHAN</title>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
-        #container { position: relative; width: 400px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        
-        /* Bảng điểm & Kỷ lục */
+        #container { position: relative; width: 450px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 95vw; }
         .header-ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; z-index: 100; }
-        .ui-box { background: white; padding: 5px 12px; border-radius: 15px; border: 2px solid #3d2b1f; font-weight: bold; color: #3d2b1f; font-size: 14px; }
-        
+        .ui-box { background: white; padding: 5px 12px; border-radius: 15px; border: 2px solid #3d2b1f; font-weight: bold; color: #3d2b1f; font-size: 13px; }
         canvas { display: block; border-radius: 10px; }
-        #dangerLine { position: absolute; top: 120px; left: 0; width: 100%; height: 2px; border-top: 3px dashed rgba(255, 71, 87, 0.6); pointer-events: none; z-index: 50; }
-        
-        /* Giao diện Game Over */
+        #dangerLine { position: absolute; top: 80px; left: 0; width: 100%; height: 2px; border-top: 3px dashed rgba(255, 71, 87, 0.6); pointer-events: none; z-index: 50; }
         #gameOverUI { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; text-align: center; }
-        #gameOverUI h1 { color: #ff4757; font-size: 45px; margin: 0; text-shadow: 2px 2px 0 #000; }
-        .final-stats { margin: 20px 0; font-size: 18px; line-height: 1.6; }
-        
+        #gameOverUI h1 { color: #ff4757; font-size: 40px; margin: 0; }
+        .final-stats { margin: 20px 0; font-size: 18px; }
         .btn-group { display: flex; gap: 10px; flex-direction: column; }
-        button { padding: 12px 30px; font-size: 18px; font-weight: bold; color: white; border: none; border-radius: 50px; cursor: pointer; transition: 0.2s; min-width: 180px; }
+        button { padding: 12px 30px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 50px; cursor: pointer; min-width: 160px; }
         .btn-again { background: #2ed573; box-shadow: 0 4px 0 #209f55; }
         .btn-share { background: #1e90ff; box-shadow: 0 4px 0 #0972d4; }
-        button:active { transform: translateY(2px); box-shadow: none; }
     </style>
 </head>
 <body>
@@ -40,23 +33,25 @@
     <div id="gameOverUI">
         <h1>GAME OVER</h1>
         <div class="final-stats">
-            <p>Điểm đạt được: <b id="finalScore" style="color:#ffcc00">0</b></p>
-            <p>Kỷ lục mới: <b id="isNewRecord" style="color:#2ed573; display:none">NEW!</b></p>
+            <p>Điểm: <b id="finalScore" style="color:#ffcc00">0</b></p>
+            <p id="isNewRecord" style="color:#2ed573; display:none; font-weight:bold">KỶ LỤC MỚI!</p>
         </div>
         <div class="btn-group">
             <button class="btn-again" onclick="location.reload()">CHƠI LẠI</button>
-            <button class="btn-share" onclick="shareGame()">CHIA SẺ ĐIỂM</button>
+            <button class="btn-share" onclick="shareGame()">CHIA SẺ</button>
         </div>
     </div>
 </div>
 
 <audio id="popSound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
-
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
     const IMGS = ['anhduy.jpg', 'ducanh.jpg', 'hieu.jpg', 'mabin.jpg', 'mhung.jpg', 'phuc.jpg', 'qduc.jpg', 'qduc2.jpg', 'tung.jpg'];
-    const DANGER_Y = 120;
+    const DANGER_Y = 80; 
+    const CW = 450;
+    const CH = 600;
+
     let highScore = localStorage.getItem('mergeQduc_highScore') || 0;
     document.getElementById('highScoreText').innerText = highScore;
 
@@ -66,7 +61,9 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const popSnd = document.getElementById('popSound');
-        canvas.width = 400; canvas.height = 600;
+        
+        canvas.width = CW; 
+        canvas.height = CH;
 
         const sprites = IMGS.map(src => {
             const img = new Image();
@@ -75,30 +72,43 @@
         });
 
         Composite.add(engine.world, [
-            Bodies.rectangle(200, 610, 400, 60, { isStatic: true }),
-            Bodies.rectangle(-10, 300, 20, 600, { isStatic: true }),
-            Bodies.rectangle(410, 300, 20, 600, { isStatic: true })
+            Bodies.rectangle(CW/2, CH + 10, CW, 60, { isStatic: true }),
+            Bodies.rectangle(-10, CH/2, 20, CH, { isStatic: true }),
+            Bodies.rectangle(CW + 10, CH/2, 20, CH, { isStatic: true })
         ]);
 
-        let score = 0, curLvl = 0, mouseX = 200, canDrop = true, isGameOver = false;
+        let score = 0, curLvl = 0, mouseX = CW/2, canDrop = true, isGameOver = false;
+
+        const getRad = (lvl) => 18 + lvl * 6;
 
         const updatePos = (e) => {
             if (isGameOver) return;
             const rect = canvas.getBoundingClientRect();
             const clientX = (e.touches) ? e.touches[0].clientX : e.clientX;
-            mouseX = Math.max(30, Math.min(370, clientX - rect.left));
+            mouseX = Math.max(20, Math.min(CW - 20, clientX - rect.left));
         };
 
         const drop = (e) => {
             if (!canDrop || isGameOver) return;
             if (e && e.cancelable) e.preventDefault();
-            const r = 25 + curLvl * 8;
-            const ball = Bodies.circle(mouseX, 50, r, {
-                label: 'ball', level: curLvl, restitution: 0.3, spawnTime: Date.now()
+            
+            const r = getRad(curLvl);
+            const ball = Bodies.circle(mouseX, 40, r, {
+                label: 'ball', 
+                level: curLvl, 
+                restitution: 0.3, 
+                spawnTime: Date.now()
             });
+            
             Composite.add(engine.world, ball);
             canDrop = false;
-            setTimeout(() => { if(!isGameOver){ curLvl = Math.floor(Math.random() * 3); canDrop = true; } }, 800);
+            
+            setTimeout(() => { 
+                if(!isGameOver){ 
+                    curLvl = Math.floor(Math.random() * 3); 
+                    canDrop = true; 
+                } 
+            }, 500);
         };
 
         window.addEventListener('mousemove', updatePos);
@@ -113,18 +123,21 @@
                     const nextLvl = bodyA.level + 1;
                     if (nextLvl < IMGS.length) {
                         bodyA.isMerging = bodyB.isMerging = true;
-                        
-                        // Chạy âm thanh khi ghép
                         popSnd.currentTime = 0;
                         popSnd.play().catch(()=>{});
 
-                        const r = 25 + nextLvl * 8;
+                        const r = getRad(nextLvl);
                         const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, r, {
                             label: 'ball', level: nextLvl, spawnTime: Date.now()
                         });
+                        
                         score += (nextLvl + 1) * 10;
                         document.getElementById('scoreText').innerText = score;
-                        setTimeout(() => { Composite.remove(engine.world, [bodyA, bodyB]); Composite.add(engine.world, newBall); }, 10);
+                        
+                        setTimeout(() => { 
+                            Composite.remove(engine.world, [bodyA, bodyB]); 
+                            Composite.add(engine.world, newBall); 
+                        }, 10);
                     }
                 }
             });
@@ -132,25 +145,29 @@
 
         (function update() {
             if (!isGameOver) Engine.update(engine, 1000/60);
-            ctx.clearRect(0, 0, 400, 600);
+            ctx.clearRect(0, 0, CW, CH);
+            
             Composite.allBodies(engine.world).forEach(body => {
                 if (body.label === 'ball') {
-                    const r = 25 + body.level * 8;
+                    const r = getRad(body.level);
                     if (!isGameOver && (body.position.y - r) < DANGER_Y && Date.now() - body.spawnTime > 3000 && Math.abs(body.velocity.y) < 0.2) {
                         endGame();
                     }
                     ctx.save();
                     ctx.translate(body.position.x, body.position.y);
                     ctx.rotate(body.angle);
-                    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.clip();
+                    ctx.beginPath(); 
+                    ctx.arc(0, 0, r, 0, Math.PI*2); 
+                    ctx.clip();
                     if (sprites[body.level].complete) ctx.drawImage(sprites[body.level], -r, -r, r*2, r*2);
                     ctx.restore();
                 }
             });
+
             if (canDrop && !isGameOver) {
-                const r = 25 + curLvl * 8;
+                const r = getRad(curLvl);
                 ctx.globalAlpha = 0.5;
-                if (sprites[curLvl].complete) ctx.drawImage(sprites[curLvl], mouseX - r, 50 - r, r*2, r*2);
+                if (sprites[curLvl].complete) ctx.drawImage(sprites[curLvl], mouseX - r, 40 - r, r*2, r*2);
                 ctx.globalAlpha = 1;
             }
             requestAnimationFrame(update);
@@ -171,11 +188,11 @@
 
     window.shareGame = () => {
         const score = document.getElementById('finalScore').innerText;
-        const text = `Tôi vừa đạt được ${score} điểm trong Merge Qduc! Thử thách bạn vượt qua kỷ lục của tôi đấy.`;
+        const text = `Tôi vừa đạt được ${score} điểm trong Merge Qduc! Thử thách bạn đấy.`;
         if (navigator.share) {
             navigator.share({ title: 'Merge Qduc', text: text, url: window.location.href });
         } else {
-            alert(text + "\n\n(Trình duyệt của bạn không hỗ trợ nút chia sẻ nhanh, hãy chụp màn hình nhé!)");
+            alert(text);
         }
     };
 
