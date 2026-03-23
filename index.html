@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DA LO TIN NHAN</title>
+    <title>DA LO TIN NHAN - Eagle</title>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
         #container { position: relative; width: 450px; height: 600px; background: #fdf0d5; border: 5px solid #3d2b1f; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 95vw; }
@@ -43,7 +43,8 @@
     </div>
 </div>
 
-<audio id="popSound" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3" preload="auto"></audio>
+<audio id="eagleSound" src="eagle.mp3" preload="auto"></audio>
+
 <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 
 <script>
@@ -60,7 +61,7 @@
         const engine = Engine.create();
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const popSnd = document.getElementById('popSound');
+        const soundEffect = document.getElementById('eagleSound');
         
         canvas.width = CW; 
         canvas.height = CH;
@@ -120,33 +121,31 @@
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
                 
-                // Kiểm tra nếu cả 2 đều là bóng và cùng level
+                // Khi 2 quả bóng cùng cấp chạm nhau
                 if (bodyA.label === 'ball' && bodyB.label === 'ball' && bodyA.level === bodyB.level && !bodyA.isMerging) {
                     bodyA.isMerging = bodyB.isMerging = true;
                     
-                    // Hiệu ứng âm thanh
-                    popSnd.currentTime = 0;
-                    popSnd.play().catch(()=>{});
+                    // Phát âm thanh Eagle
+                    soundEffect.currentTime = 0;
+                    soundEffect.play().catch(()=>{});
 
                     const nextLvl = bodyA.level + 1;
 
                     if (nextLvl < IMGS.length) {
-                        // TRƯỜNG HỢP 1: Nâng cấp lên bóng to hơn
+                        // Nâng cấp bóng
                         const r = getRad(nextLvl);
                         const newBall = Bodies.circle((bodyA.position.x + bodyB.position.x)/2, (bodyA.position.y + bodyB.position.y)/2, r, {
                             label: 'ball', level: nextLvl, spawnTime: Date.now()
                         });
                         
                         score += (nextLvl + 1) * 10;
-                        
                         setTimeout(() => { 
                             Composite.remove(engine.world, [bodyA, bodyB]); 
                             Composite.add(engine.world, newBall); 
                         }, 10);
                     } else {
-                        // TRƯỜNG HỢP 2: Hai bóng to nhất (tung.jpg) chạm nhau -> Biến mất + 1000 điểm
+                        // Đạt cấp tung.jpg: Biến mất + 1000 điểm
                         score += 1000;
-                        
                         setTimeout(() => { 
                             Composite.remove(engine.world, [bodyA, bodyB]); 
                         }, 10);
@@ -203,4 +202,14 @@
     window.shareGame = () => {
         const score = document.getElementById('finalScore').innerText;
         const text = `Tôi vừa đạt được ${score} điểm trong Merge Qduc! Thử thách bạn đấy.`;
-        if (navigator.share
+        if (navigator.share) {
+            navigator.share({ title: 'Merge Qduc', text: text, url: window.location.href });
+        } else {
+            alert(text);
+        }
+    };
+
+    window.onload = () => { setTimeout(() => { if (typeof Matter !== 'undefined') initGame(); }, 500); };
+</script>
+</body>
+</html>
