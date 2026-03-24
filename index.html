@@ -190,6 +190,19 @@
 
             if (canDrop && !isGameOver) {
                 const r = getRad(curLvl);
+
+                // Vertical dashed guide line from ball down to bottom
+                ctx.save();
+                ctx.setLineDash([8, 8]);
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+                ctx.beginPath();
+                ctx.moveTo(mouseX, 40 + r);
+                ctx.lineTo(mouseX, CH);
+                ctx.stroke();
+                ctx.restore();
+
+                // Preview ball
                 ctx.globalAlpha = 0.5;
                 if (sprites[curLvl].complete) ctx.drawImage(sprites[curLvl], mouseX - r, 40 - r, r*2, r*2);
                 ctx.globalAlpha = 1;
